@@ -1,0 +1,237 @@
+<!doctype html>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Leave for Bus</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 24px; }
+  h1 { margin: 0 0 16px 0; font-size: 28px; }
+  .card { border: 1px solid rgba(0,0,0,.15); border-radius: 16px; padding: 16px; margin: 14px 0; }
+  .route { font-size: 20px; font-weight: 700; opacity: .85; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .label { font-size: 16px; opacity: .65; }
+  .big { font-size: 44px; font-weight: 800; line-height: 1.05; }
+  .small { font-size: 20px; font-weight: 700; }
+  .muted { opacity: .65; }
+  .bus-card { border-left: 4px solid; border-radius: 4px; padding-left: 12px; }
+  .bus-87 { border-left-color: #0072ce; }
+  .bus-88 { border-left-color: #e31837; }
+  .route-label { font-weight: 700; }
+  .route-87 { color: #0072ce; }
+  .route-88 { color: #e31837; }
+</style>
+
+<h1>Lechmere buses</h1>
+
+<div class="card" id="cardBroadway">
+  <div class="route">Broadway opp Silk St</div>
+  <div id="broadwayBuses"></div>
+</div>
+
+<div class="card" id="cardClarendon">
+  <div class="route">Clarendon Hill</div>
+  <div id="clarendonBuses"></div>
+</div>
+
+<div class="muted" id="status">—</div>
+
+<script>
+const API = "https://api-v3.mbta.com";
+
+// Your stops
+const STOP_BROADWAY = "12653"; // Broadway opp Silk St
+const STOP_CLARENDON = "2637";  // Clarendon Hill
+
+// Tune these
+const WALK_BROADWAY = 3;   // minutes to walk to Broadway stop
+const WALK_CLARENDON = 9;  // minutes to walk to Clarendon stop
+const BUFFER_MIN = 2;
+
+// Refresh
+const REFRESH_MS = 20000;
+
+function fmtTime(d) {
+  return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+}
+function minsUntil(from, to) {
+  return Math.ceil((to - from) / 60000);
+}
+
+// Auto-detect direction toward Lechmere (fallback to 0)
+async function directionIdTowardLechmere(route) {
+  try {
+    const res = await fetch(`${API}/routes/${route}`);
+    if (!res.ok) {
+      console.warn(`Failed to fetch route ${route}: ${res.status}`);
+      return 0;
+    }
+    const j = await res.json();
+    const names = j?.data?.attributes?.direction_names || [];
+    const i = names.findIndex(n => String(n).toLowerCase().includes("lechmere"));
+    return i >= 0 ? i : 0;
+  } catch (e) {
+    console.error(`Error fetching direction for route ${route}:`, e);
+    return 0;
+  }
+}
+
+// Get predictions for a route at a stop (returns array of future prediction times with route info)
+async function getPredictions(route, stop, dir) {
+  try {
+    const url = new URL(`${API}/predictions`);
+    url.searchParams.set("filter[route]", route);
+    url.searchParams.set("filter[stop]", stop);
+    url.searchParams.set("filter[direction_id]", String(dir));
+    url.searchParams.set("sort", "departure_time");
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.warn(`Failed to fetch predictions for route ${route}, stop ${stop}: ${res.status}`);
+      return [];
+    }
+    const j = await res.json();
+    
+    if (!j?.data || j.data.length === 0) {
+      return [];
+    }
+    
+    // Filter to future predictions only
+    const now = new Date();
+    const predictions = [];
+    for (const pred of j.data) {
+      const a = pred?.attributes;
+      const t = a?.departure_time || a?.arrival_time || null;
+      if (t) {
+        const predTime = new Date(t);
+        // Only include predictions that are in the future (with 1 minute buffer for clock skew)
+        if (predTime > new Date(now.getTime() - 60000)) {
+          predictions.push({ time: predTime, route: route });
+        }
+      }
+    }
+    
+    return predictions;
+  } catch (e) {
+    console.error(`Error fetching predictions for route ${route}, stop ${stop}:`, e);
+    return [];
+  }
+}
+
+// Get next N buses (87 or 88) at a stop
+async function getNextBusesAtStop(stop, dir87, dir88, count = 2) {
+  const [preds87, preds88] = await Promise.all([
+    getPredictions("87", stop, dir87),
+    getPredictions("88", stop, dir88),
+  ]);
+  
+  // Combine and sort by time
+  const allPreds = [...preds87, ...preds88].sort((a, b) => a.time - b.time);
+  
+  // Return the next N
+  return allPreds.slice(0, count);
+}
+
+function renderBusCard(bus, walkMin, index) {
+  const now = new Date();
+  const leaveTime = new Date(bus.time.getTime() - (walkMin + BUFFER_MIN) * 60000);
+  const busIn = minsUntil(now, bus.time);
+  const leaveIn = minsUntil(now, leaveTime);
+  const routeClass = `bus-${bus.route}`;
+  const routeLabelClass = `route-${bus.route}`;
+
+  return `
+    <div class="bus-card ${routeClass}" style="margin-top: ${index > 0 ? '16px' : '10px'}">
+      <div class="grid">
+        <div>
+          <div class="label">Leave in</div>
+          <div class="big">${leaveIn}m</div>
+          <div class="muted">at ${fmtTime(leaveTime)}</div>
+        </div>
+        <div>
+          <div class="label">Bus <span class="route-label ${routeLabelClass}">${bus.route}</span> in</div>
+          <div class="big">${busIn}m</div>
+          <div class="muted">at ${fmtTime(bus.time)}</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderStopBuses(containerId, buses, walkMin) {
+  const container = document.getElementById(containerId);
+  if (!buses || buses.length === 0) {
+    container.innerHTML = '<div class="muted" style="margin-top: 10px;">No buses</div>';
+    return;
+  }
+  
+  container.innerHTML = buses.map((bus, i) => renderBusCard(bus, walkMin, i)).join('');
+}
+
+let DIR_87 = 0, DIR_88 = 0;
+let lastUpdateTime = null;
+let nextRefreshTime = null;
+let countdownInterval = null;
+
+function updateStatus() {
+  const statusEl = document.getElementById("status");
+  const now = new Date();
+  
+  let statusParts = [];
+  
+  // Last updated
+  if (lastUpdateTime) {
+    const timeStr = fmtTime(lastUpdateTime);
+    statusParts.push(`Updated ${timeStr}`);
+  }
+  
+  // Countdown
+  if (nextRefreshTime) {
+    const secondsUntil = Math.max(0, Math.ceil((nextRefreshTime - now) / 1000));
+    statusParts.push(`Refresh in ${secondsUntil}s`);
+  }
+  
+  // Other info
+  statusParts.push(
+    `Walk: ${WALK_BROADWAY}m/${WALK_CLARENDON}m`,
+    `Buffer: ${BUFFER_MIN}m`
+  );
+  
+  statusEl.textContent = statusParts.join(" • ");
+}
+
+async function tick() {
+  try {
+    document.getElementById("status").textContent = "Updating…";
+    
+    const [broadwayBuses, clarendonBuses] = await Promise.all([
+      getNextBusesAtStop(STOP_BROADWAY, DIR_87, DIR_88, 2),
+      getNextBusesAtStop(STOP_CLARENDON, DIR_87, DIR_88, 2),
+    ]);
+
+    renderStopBuses("broadwayBuses", broadwayBuses, WALK_BROADWAY);
+    renderStopBuses("clarendonBuses", clarendonBuses, WALK_CLARENDON);
+
+    // Update timestamps
+    lastUpdateTime = new Date();
+    nextRefreshTime = new Date(lastUpdateTime.getTime() + REFRESH_MS);
+    updateStatus();
+  } catch (e) {
+    console.error("Error in tick():", e);
+    document.getElementById("status").textContent = `Error: ${e.message || "Failed to fetch MBTA data"}`;
+  }
+}
+
+(async () => {
+  [DIR_87, DIR_88] = await Promise.all([
+    directionIdTowardLechmere("87"),
+    directionIdTowardLechmere("88"),
+  ]);
+  
+  // Initial tick
+  await tick();
+  
+  // Set up refresh interval
+  setInterval(tick, REFRESH_MS);
+  
+  // Set up countdown timer (updates every second)
+  countdownInterval = setInterval(updateStatus, 1000);
+})();
+</script>
