@@ -1,4 +1,7 @@
 <!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Leave for Bus</title>
 <style>
@@ -18,7 +21,8 @@
   .route-87 { color: #0072ce; }
   .route-88 { color: #e31837; }
 </style>
-
+</head>
+<body>
 <h1>Lechmere buses</h1>
 
 <div class="card" id="cardBroadway">
@@ -64,7 +68,7 @@ async function directionIdTowardLechmere(route) {
       return 0;
     }
     const j = await res.json();
-    const names = j?.data?.attributes?.direction_names || [];
+    const names = (j && j.data && j.data.attributes && j.data.attributes.direction_names) || [];
     const i = names.findIndex(n => String(n).toLowerCase().includes("lechmere"));
     return i >= 0 ? i : 0;
   } catch (e) {
@@ -89,7 +93,7 @@ async function getPredictions(route, stop, dir) {
     }
     const j = await res.json();
     
-    if (!j?.data || j.data.length === 0) {
+    if (!j || !j.data || j.data.length === 0) {
       return [];
     }
     
@@ -97,8 +101,8 @@ async function getPredictions(route, stop, dir) {
     const now = new Date();
     const predictions = [];
     for (const pred of j.data) {
-      const a = pred?.attributes;
-      const t = a?.departure_time || a?.arrival_time || null;
+      const a = (pred && pred.attributes) || {};
+      const t = a.departure_time || a.arrival_time || null;
       if (t) {
         const predTime = new Date(t);
         // Only include predictions that are in the future (with 1 minute buffer for clock skew)
@@ -134,35 +138,42 @@ function renderBusCard(bus, walkMin, index) {
   const leaveTime = new Date(bus.time.getTime() - (walkMin + BUFFER_MIN) * 60000);
   const busIn = minsUntil(now, bus.time);
   const leaveIn = minsUntil(now, leaveTime);
-  const routeClass = `bus-${bus.route}`;
-  const routeLabelClass = `route-${bus.route}`;
+  const routeClass = "bus-" + bus.route;
+  const routeLabelClass = "route-" + bus.route;
+  const marginTop = index > 0 ? "16px" : "10px";
 
-  return `
-    <div class="bus-card ${routeClass}" style="margin-top: ${index > 0 ? '16px' : '10px'}">
-      <div class="grid">
-        <div>
-          <div class="label">Leave in</div>
-          <div class="big">${leaveIn}m</div>
-          <div class="muted">at ${fmtTime(leaveTime)}</div>
-        </div>
-        <div>
-          <div class="label">Bus <span class="route-label ${routeLabelClass}">${bus.route}</span> in</div>
-          <div class="big">${busIn}m</div>
-          <div class="muted">at ${fmtTime(bus.time)}</div>
-        </div>
-      </div>
-    </div>
-  `;
+  return "<div class=\"bus-card " + routeClass + "\" style=\"margin-top: " + marginTop + ";\">" +
+    "<div class=\"grid\">" +
+      "<div>" +
+        "<div class=\"label\">Leave in</div>" +
+        "<div class=\"big\">" + leaveIn + "m</div>" +
+        "<div class=\"muted\">at " + fmtTime(leaveTime) + "</div>" +
+      "</div>" +
+      "<div>" +
+        "<div class=\"label\">Bus <span class=\"route-label " + routeLabelClass + "\">" + bus.route + "</span> in</div>" +
+        "<div class=\"big\">" + busIn + "m</div>" +
+        "<div class=\"muted\">at " + fmtTime(bus.time) + "</div>" +
+      "</div>" +
+    "</div>" +
+  "</div>";
 }
 
 function renderStopBuses(containerId, buses, walkMin) {
   const container = document.getElementById(containerId);
+  if (!container) {
+    console.error("Container not found:", containerId);
+    return;
+  }
   if (!buses || buses.length === 0) {
     container.innerHTML = '<div class="muted" style="margin-top: 10px;">No buses</div>';
     return;
   }
   
-  container.innerHTML = buses.map((bus, i) => renderBusCard(bus, walkMin, i)).join('');
+  var html = "";
+  for (var i = 0; i < buses.length; i++) {
+    html += renderBusCard(buses[i], walkMin, i);
+  }
+  container.innerHTML = html;
 }
 
 let DIR_87 = 0, DIR_88 = 0;
@@ -219,19 +230,39 @@ async function tick() {
   }
 }
 
-(async () => {
-  [DIR_87, DIR_88] = await Promise.all([
-    directionIdTowardLechmere("87"),
-    directionIdTowardLechmere("88"),
-  ]);
-  
-  // Initial tick
-  await tick();
-  
-  // Set up refresh interval
-  setInterval(tick, REFRESH_MS);
-  
-  // Set up countdown timer (updates every second)
-  countdownInterval = setInterval(updateStatus, 1000);
+(function() {
+  try {
+    (async function() {
+      try {
+        [DIR_87, DIR_88] = await Promise.all([
+          directionIdTowardLechmere("87"),
+          directionIdTowardLechmere("88"),
+        ]);
+        
+        // Initial tick
+        await tick();
+        
+        // Set up refresh interval
+        setInterval(tick, REFRESH_MS);
+        
+        // Set up countdown timer (updates every second)
+        countdownInterval = setInterval(updateStatus, 1000);
+      } catch (e) {
+        console.error("Initialization error:", e);
+        var statusEl = document.getElementById("status");
+        if (statusEl) {
+          statusEl.textContent = "Error initializing: " + (e.message || String(e));
+        }
+      }
+    })();
+  } catch (e) {
+    console.error("Fatal error:", e);
+    var statusEl = document.getElementById("status");
+    if (statusEl) {
+      statusEl.textContent = "Fatal error: " + (e.message || String(e));
+    }
+  }
 })();
 </script>
+</body>
+</html>
