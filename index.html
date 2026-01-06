@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
 <title>Leave for Bus</title>
 <style>
   body { font-family: system-ui, -apple-system, sans-serif; margin: 24px; }
@@ -46,6 +47,9 @@ const API = "https://api-v3.mbta.com";
 const STOP_BROADWAY = "12653"; // Broadway opp Silk St
 const STOP_CLARENDON = "2637";  // Clarendon Hill
 
+const DIR_87 = 1;
+const DIR_88 = 1;
+
 // Tune these
 const WALK_BROADWAY = 3;   // minutes to walk to Broadway stop
 const WALK_CLARENDON = 9;  // minutes to walk to Clarendon stop
@@ -61,23 +65,6 @@ function minsUntil(from, to) {
   return Math.ceil((to - from) / 60000);
 }
 
-// Auto-detect direction toward Lechmere (fallback to 0)
-async function directionIdTowardLechmere(route) {
-  try {
-    const res = await fetch(`${API}/routes/${route}`);
-    if (!res.ok) {
-      console.warn(`Failed to fetch route ${route}: ${res.status}`);
-      return 0;
-    }
-    const j = await res.json();
-    const names = (j && j.data && j.data.attributes && j.data.attributes.direction_names) || [];
-    const i = names.findIndex(n => String(n).toLowerCase().includes("lechmere"));
-    return i >= 0 ? i : 0;
-  } catch (e) {
-    console.error(`Error fetching direction for route ${route}:`, e);
-    return 0;
-  }
-}
 
 // Get predictions for a route at a stop (returns array of future prediction times with route info)
 async function getPredictions(route, stop, dir) {
@@ -178,7 +165,6 @@ function renderStopBuses(containerId, buses, walkMin) {
   container.innerHTML = html;
 }
 
-let DIR_87 = 0, DIR_88 = 0;
 let lastUpdateTime = null;
 let nextRefreshTime = null;
 let countdownInterval = null;
@@ -236,11 +222,6 @@ async function tick() {
   try {
     (async function() {
       try {
-        [DIR_87, DIR_88] = await Promise.all([
-          directionIdTowardLechmere("87"),
-          directionIdTowardLechmere("88"),
-        ]);
-        
         // Initial tick
         await tick();
         
