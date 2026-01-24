@@ -8,57 +8,923 @@
 
 <link rel="icon" type="image/png" href="gogogo.png" />
 
-<title>Leave for Bus</title>
+<title>GOGOGO</title>
 <style>
-  body { font-family: system-ui, -apple-system, sans-serif; margin: 24px; }
-  h1 { margin: 0 0 16px 0; font-size: 28px; }
-  .card { border: 1px solid rgba(0,0,0,.15); border-radius: 16px; padding: 16px; margin: 14px 0; }
-  .route { font-size: 20px; font-weight: 700; opacity: .85; }
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
-  .label { font-size: 16px; opacity: .65; }
-  .big { font-size: 44px; font-weight: 800; line-height: 1.05; }
+  body { font-family: system-ui, -apple-system, sans-serif; margin: 16px; padding-bottom: env(safe-area-inset-bottom, 16px); }
+  h1 { margin: 0 0 12px 0; font-size: 24px; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .header h1 { margin: 0; }
+  .card { border: 1px solid rgba(0,0,0,.15); border-radius: 12px; padding: 12px; margin: 10px 0; }
+  .route { font-size: 18px; font-weight: 700; opacity: .85; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
+  .label { font-size: 14px; opacity: .65; }
+  .big { font-size: 52px; font-weight: 800; line-height: 1.0; }
   .small { font-size: 20px; font-weight: 700; }
-  .muted { opacity: .65; }
-  .bus-card { border-left: 4px solid; border-radius: 4px; padding-left: 12px; }
-  .bus-87 { border-left-color: #0072ce; }
-  .bus-88 { border-left-color: #e31837; }
+  .muted { opacity: .65; font-size: 13px; }
+  .bus-card { border-left: 5px solid; border-radius: 4px; padding-left: 12px; border-left-color: #666; }
   .route-label { font-weight: 700; }
-  .route-87 { color: #0072ce; }
-  .route-88 { color: #e31837; }
+  .config-panel { border: 1px solid rgba(0,0,0,.15); border-radius: 12px; padding: 14px; margin: 10px 0; background: #f8f9fa; }
+  .config-panel.hidden { display: none; }
+  .config-title { font-size: 18px; font-weight: 700; margin-bottom: 12px; }
+  .config-content { display: block; }
+  .config-section { margin: 14px 0; }
+  .config-section label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 6px; opacity: .8; }
+  .config-section input, .config-section select {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid rgba(0,0,0,.2);
+    border-radius: 8px;
+    font-size: 16px;
+    font-family: inherit;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .config-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .config-item { display: grid; grid-template-columns: 2fr 1fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; }
+  .stop-item { display: grid; grid-template-columns: 2fr 1fr auto; gap: 8px; margin-bottom: 8px; align-items: center; padding: 10px; background: white; border-radius: 8px; border: 1px solid rgba(0,0,0,.1); }
+  .stop-item input { margin: 0; min-height: 40px; }
+  .loading { opacity: .5; pointer-events: none; }
+  .route-config { border: 1px solid rgba(0,0,0,.2); border-radius: 8px; padding: 12px; margin-bottom: 12px; background: white; }
+  .route-config-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .route-config-title { font-weight: 700; font-size: 16px; }
+  .btn {
+    padding: 12px 16px;
+    border: 1px solid rgba(0,0,0,.2);
+    border-radius: 8px;
+    background: white;
+    cursor: pointer;
+    font-size: 16px;
+    font-family: inherit;
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  .btn:hover { background: #f0f0f0; }
+  .btn:active { background: #e0e0e0; }
+  .btn-small { padding: 8px 12px; font-size: 14px; min-height: 40px; }
+  .btn-primary { background: #0072ce; color: white; border-color: #0072ce; }
+  .btn-primary:hover { background: #005a9e; }
+  .btn-primary:active { background: #004a8e; }
+  .btn-edit {
+    padding: 8px 14px;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn-danger { background: #fee; color: #c00; border-color: #fcc; }
+  .btn-danger:hover { background: #fdd; }
+  .btn-danger:active { background: #fcc; }
+  .pull-indicator {
+    text-align: center;
+    padding: 8px;
+    color: #666;
+    font-size: 13px;
+    transition: opacity 0.2s;
+  }
+  .pull-indicator.hidden { opacity: 0; }
+  select:disabled, input:disabled { background: #f0f0f0; color: #999; }
+  @media (max-width: 400px) {
+    body { margin: 12px; }
+    .big { font-size: 48px; }
+    .stop-item { grid-template-columns: 1fr auto auto; gap: 6px; }
+  }
 </style>
 </head>
 <body>
-<h1>Lechmere buses</h1>
-
-<div class="card" id="cardBroadway">
-  <div class="route">Broadway opp Silk St</div>
-  <div id="broadwayBuses"></div>
+<div class="header">
+  <h1>GOGOGO</h1>
+  <button class="btn btn-edit" id="editBtn" onclick="enterEditMode()" style="display: none;">
+    <span>Edit</span>
+  </button>
 </div>
 
-<div class="card" id="cardClarendon">
-  <div class="route">Clarendon Hill</div>
-  <div id="clarendonBuses"></div>
+<div id="pullIndicator" class="pull-indicator hidden">Pull to refresh</div>
+
+<div class="config-panel" id="configPanel">
+  <div class="config-title">⚙️ Configuration</div>
+  <div class="config-content" id="configContent">
+    <div class="config-section">
+      <label>Routes</label>
+      <div id="routesContainer"></div>
+      <button class="btn btn-small" onclick="addRoute()" style="width: 100%; margin-top: 8px;">➕ Add Route</button>
+    </div>
+    <div class="config-section" title="Extra time added before departure to account for delays or walking pace">
+      <label>⏱️ Buffer (minutes)</label>
+      <input type="number" id="configBuffer" min="0" value="2" title="Extra minutes to leave early, just in case" />
+    </div>
+    <button class="btn btn-primary" onclick="applyConfig()" style="margin-top: 12px; width: 100%;" id="applyBtn" disabled>Apply Configuration</button>
+  </div>
 </div>
+
+<div id="stopsContainer"></div>
 
 <div class="muted" id="status">—</div>
 
 <script>
 const API = "https://api-v3.mbta.com";
-
-// Your stops
-const STOP_BROADWAY = "12653"; // Broadway opp Silk St
-const STOP_CLARENDON = "2637";  // Clarendon Hill
-
-const DIR_87 = 1;
-const DIR_88 = 1;
-
-// Tune these
-const WALK_BROADWAY = 3;   // minutes to walk to Broadway stop
-const WALK_CLARENDON = 9;  // minutes to walk to Clarendon stop
-const BUFFER_MIN = 2;
-
-// Refresh
 const REFRESH_MS = 20000;
+
+// Default configuration (empty - user configures their own)
+const DEFAULT_CONFIG = {
+  routes: [],
+  directions: {},
+  stops: [],
+  buffer: 2
+};
+
+// Current configuration
+let config = { ...DEFAULT_CONFIG };
+
+// UI state
+let routeConfigs = []; // Array of {routeId, routeShortName, direction, stops: [{id, name, walk}]}
+let allRoutes = [];
+let routeDirections = {}; // Cache of directions for each route
+let routeStops = {}; // Cache of stops for route:direction combinations
+let routeConfigCounter = 0; // Unique ID for each route config
+
+// Parse URL query parameters
+function parseConfigFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  const config = { ...DEFAULT_CONFIG };
+
+  // Parse routes
+  if (params.has("routes")) {
+    config.routes = params.get("routes").split(",").map(r => r.trim()).filter(r => r);
+  }
+
+  // Parse directions (format: route:direction,route:direction)
+  if (params.has("dirs")) {
+    config.directions = {};
+    params.get("dirs").split(",").forEach(pair => {
+      const [route, dir] = pair.split(":").map(s => s.trim());
+      if (route && dir !== undefined) {
+        config.directions[route] = parseInt(dir, 10);
+      }
+    });
+  }
+
+  // Parse stops - new format includes route: route|stopId:walk:name
+  // Old format (backward compat): stopId:walk:name
+  config.routeStopsMap = {}; // Map route -> array of stops
+  if (params.has("stops")) {
+    config.stops = [];
+    const seenStops = new Set();
+
+    params.get("stops").split(",").forEach(stopStr => {
+      // Check for new format with route prefix (route|stopId:walk:name)
+      if (stopStr.includes("|")) {
+        const [route, rest] = stopStr.split("|");
+        const parts = rest.split(":").map(s => s.trim());
+        if (parts.length >= 2) {
+          const stop = {
+            id: parts[0],
+            walk: parseInt(parts[1], 10) || 0,
+            name: parts.slice(2).join(":") || `Stop ${parts[0]}`
+          };
+
+          // Add to route-specific map
+          if (!config.routeStopsMap[route]) {
+            config.routeStopsMap[route] = [];
+          }
+          config.routeStopsMap[route].push(stop);
+
+          // Add to global stops (deduplicated for display)
+          if (!seenStops.has(stop.id)) {
+            seenStops.add(stop.id);
+            config.stops.push(stop);
+          }
+        }
+      } else {
+        // Old format - no route association
+        const parts = stopStr.split(":").map(s => s.trim());
+        if (parts.length >= 2) {
+          const stop = {
+            id: parts[0],
+            walk: parseInt(parts[1], 10) || 0,
+            name: parts.slice(2).join(":") || `Stop ${parts[0]}`
+          };
+          if (!seenStops.has(stop.id)) {
+            seenStops.add(stop.id);
+            config.stops.push(stop);
+          }
+        }
+      }
+    });
+  }
+  
+  // Parse buffer
+  if (params.has("buffer")) {
+    config.buffer = parseInt(params.get("buffer"), 10) || 2;
+  }
+  
+  return config;
+}
+
+// Update URL with current configuration
+function updateURL() {
+  const params = new URLSearchParams();
+
+  if (config.routes.length > 0) {
+    params.set("routes", config.routes.join(","));
+  }
+
+  const dirPairs = Object.entries(config.directions)
+    .map(([route, dir]) => `${route}:${dir}`)
+    .join(",");
+  if (dirPairs) {
+    params.set("dirs", dirPairs);
+  }
+
+  // Write stops with route association: route|stopId:walk:name
+  const stopPairs = [];
+  if (config.routeStopsMap && Object.keys(config.routeStopsMap).length > 0) {
+    for (const [route, stops] of Object.entries(config.routeStopsMap)) {
+      for (const stop of stops) {
+        stopPairs.push(`${route}|${stop.id}:${stop.walk}:${stop.name}`);
+      }
+    }
+  } else {
+    // Fallback to old format if no routeStopsMap
+    for (const stop of config.stops) {
+      stopPairs.push(`${stop.id}:${stop.walk}:${stop.name}`);
+    }
+  }
+
+  if (stopPairs.length > 0) {
+    params.set("stops", stopPairs.join(","));
+  }
+
+  params.set("buffer", String(config.buffer));
+
+  const newURL = window.location.pathname + "?" + params.toString();
+  window.history.replaceState({}, "", newURL);
+}
+
+// Cache for route colors (route shortName -> hex color)
+let routeColors = {};
+
+// Fetch all routes (bus and T lines)
+async function fetchRoutes() {
+  try {
+    // Fetch bus routes (type 3), light rail (type 0), and heavy rail/subway (type 1)
+    const [busRes, lightRailRes, heavyRailRes] = await Promise.all([
+      fetch(`${API}/routes?filter[type]=3&sort=short_name`),
+      fetch(`${API}/routes?filter[type]=0&sort=short_name`),
+      fetch(`${API}/routes?filter[type]=1&sort=short_name`)
+    ]);
+
+    const routes = [];
+
+    // Process bus routes
+    if (busRes.ok) {
+      const busData = await busRes.json();
+      routes.push(...(busData.data || []).map(route => {
+        const color = route.attributes.color || '666666';
+        routeColors[route.attributes.short_name] = color;
+        return {
+          id: route.id,
+          shortName: route.attributes.short_name,
+          longName: route.attributes.long_name,
+          type: 'bus',
+          color: color
+        };
+      }));
+    }
+
+    // Process light rail routes
+    if (lightRailRes.ok) {
+      const lightRailData = await lightRailRes.json();
+      routes.push(...(lightRailData.data || []).map(route => {
+        const color = route.attributes.color || '666666';
+        routeColors[route.attributes.short_name] = color;
+        return {
+          id: route.id,
+          shortName: route.attributes.short_name,
+          longName: route.attributes.long_name,
+          type: 'light_rail',
+          color: color
+        };
+      }));
+    }
+
+    // Process heavy rail/subway routes
+    if (heavyRailRes.ok) {
+      const heavyRailData = await heavyRailRes.json();
+      routes.push(...(heavyRailData.data || []).map(route => {
+        const color = route.attributes.color || '666666';
+        routeColors[route.attributes.short_name] = color;
+        return {
+          id: route.id,
+          shortName: route.attributes.short_name,
+          longName: route.attributes.long_name,
+          type: 'heavy_rail',
+          color: color
+        };
+      }));
+    }
+
+    // Sort priority: colored lines, silver, mattapan, then buses
+    function getSortPriority(route) {
+      const name = route.shortName.toUpperCase();
+      const id = route.id.toLowerCase();
+
+      // Colored heavy rail lines first (Red, Orange, Blue)
+      if (id === 'red') return [0, 0];
+      if (id === 'orange') return [0, 1];
+      if (id === 'blue') return [0, 2];
+
+      // Green lines next
+      if (name === 'B' || id === 'green-b') return [1, 0];
+      if (name === 'C' || id === 'green-c') return [1, 1];
+      if (name === 'D' || id === 'green-d') return [1, 2];
+      if (name === 'E' || id === 'green-e') return [1, 3];
+
+      // Silver line
+      if (name.startsWith('SL') || id.includes('silver')) return [2, name];
+
+      // Mattapan trolley
+      if (id === 'mattapan' || name === 'Mattapan') return [3, 0];
+
+      // Buses last, sorted numerically
+      const num = parseInt(name, 10);
+      if (!isNaN(num)) return [4, num];
+
+      // Other routes alphabetically
+      return [5, name];
+    }
+
+    routes.sort((a, b) => {
+      const [aPri, aSub] = getSortPriority(a);
+      const [bPri, bSub] = getSortPriority(b);
+
+      if (aPri !== bPri) return aPri - bPri;
+
+      // Sub-sort
+      if (typeof aSub === 'number' && typeof bSub === 'number') {
+        return aSub - bSub;
+      }
+      return String(aSub).localeCompare(String(bSub));
+    });
+
+    return routes;
+  } catch (e) {
+    console.error("Error fetching routes:", e);
+    return [];
+  }
+}
+
+// Fetch directions for a route
+async function fetchDirections(routeId) {
+  if (routeDirections[routeId]) {
+    return routeDirections[routeId];
+  }
+  
+  try {
+    const url = new URL(`${API}/routes/${routeId}`);
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("Failed to fetch route directions:", res.status);
+      return [];
+    }
+    const data = await res.json();
+    const directions = data.data?.attributes?.direction_names || [];
+    const result = directions.map((name, index) => ({
+      id: index,
+      name: name || `Direction ${index}`
+    }));
+    routeDirections[routeId] = result;
+    return result;
+  } catch (e) {
+    console.error("Error fetching directions:", e);
+    return [];
+  }
+}
+
+// Fetch stops for a route and direction
+async function fetchStops(routeId, directionId) {
+  const key = `${routeId}:${directionId}`;
+  if (routeStops[key]) {
+    return routeStops[key];
+  }
+
+  try {
+    // Fetch stops filtered by route and direction - no sort param to preserve route order
+    const url = new URL(`${API}/stops`);
+    url.searchParams.set("filter[route]", routeId);
+    url.searchParams.set("filter[direction_id]", String(directionId));
+    // Don't sort - MBTA API returns stops in route order by default
+
+    const res = await fetch(url);
+    if (!res.ok) {
+      console.error("Failed to fetch stops:", res.status);
+      return [];
+    }
+    const data = await res.json();
+
+    // Map stops - preserve route order from API (don't sort alphabetically)
+    const stops = (data.data || []).map(stop => ({
+      id: stop.id,
+      name: stop.attributes.name
+    }));
+
+    routeStops[key] = stops;
+    return stops;
+  } catch (e) {
+    console.error("Error fetching stops:", e);
+    return [];
+  }
+}
+
+// Populate route dropdown
+async function populateRoutes() {
+  allRoutes = await fetchRoutes();
+  await renderRoutes();
+}
+
+// Add a new route configuration
+async function addRoute() {
+  const configId = routeConfigCounter++;
+  routeConfigs.push({
+    id: configId,
+    routeId: null,
+    routeShortName: null,
+    direction: null,
+    stops: []
+  });
+  await renderRoutes();
+}
+
+// Remove a route configuration
+async function removeRoute(configId) {
+  routeConfigs = routeConfigs.filter(c => c.id !== configId);
+  await renderRoutes();
+  updateApplyButton();
+}
+
+// Handle route selection change for a specific config
+async function onRouteChange(configId) {
+  const routeConfig = routeConfigs.find(c => c.id === configId);
+  if (!routeConfig) return;
+
+  const routeSelect = document.getElementById(`routeSelect_${configId}`);
+  const routeId = routeSelect.value;
+
+  if (!routeId) {
+    routeConfig.routeId = null;
+    routeConfig.routeShortName = null;
+    routeConfig.direction = null;
+    routeConfig.stops = [];
+    await renderRoutes();
+    updateApplyButton();
+    return;
+  }
+
+  // Disable select during load
+  routeSelect.disabled = true;
+
+  const route = allRoutes.find(r => r.id === routeId);
+  routeConfig.routeId = routeId;
+  routeConfig.routeShortName = route ? route.shortName : routeId;
+  routeConfig.direction = null;
+  routeConfig.stops = [];
+
+  // Re-render to show direction selector (renderRoutes will populate it)
+  await renderRoutes();
+  updateApplyButton();
+
+  // Re-enable the route select (it was re-created by renderRoutes)
+  const newRouteSelect = document.getElementById(`routeSelect_${configId}`);
+  if (newRouteSelect) {
+    newRouteSelect.disabled = false;
+  }
+}
+
+// Handle direction selection change for a specific config
+async function onDirectionChange(configId) {
+  const routeConfig = routeConfigs.find(c => c.id === configId);
+  if (!routeConfig || !routeConfig.routeId) return;
+
+  const directionSelect = document.getElementById(`directionSelect_${configId}`);
+  const direction = directionSelect.value;
+
+  if (!direction || direction === "") {
+    routeConfig.direction = null;
+    routeConfig.stops = [];
+    await renderRoutes();
+    updateApplyButton();
+    return;
+  }
+
+  routeConfig.direction = parseInt(direction, 10);
+  routeConfig.stops = [];
+
+  // Disable direction select during load
+  directionSelect.disabled = true;
+
+  // Re-render and wait for completion
+  await renderRoutes();
+  updateApplyButton();
+
+  // Re-enable direction select
+  const newDirSelect = document.getElementById(`directionSelect_${configId}`);
+  if (newDirSelect) {
+    newDirSelect.disabled = false;
+  }
+}
+
+// Add a stop to a route configuration
+async function addStop(configId) {
+  const routeConfig = routeConfigs.find(c => c.id === configId);
+  if (!routeConfig) return;
+
+  const stopSelect = document.getElementById(`stopSelect_${configId}`);
+  const stopId = stopSelect.value;
+  const stopName = stopSelect.options[stopSelect.selectedIndex]?.text || "";
+
+  if (!stopId || routeConfig.stops.some(s => s.id === stopId)) {
+    return; // Already added or no selection
+  }
+
+  routeConfig.stops.push({
+    id: stopId,
+    name: stopName,
+    walk: 3 // Default walk time
+  });
+
+  await renderRoutes();
+  updateApplyButton();
+}
+
+// Remove a stop from a route configuration
+async function removeStop(configId, stopId) {
+  const routeConfig = routeConfigs.find(c => c.id === configId);
+  if (routeConfig) {
+    routeConfig.stops = routeConfig.stops.filter(s => s.id !== stopId);
+    await renderRoutes();
+    updateApplyButton();
+  }
+}
+
+// Update walk time for a stop
+function updateStopWalk(configId, stopId, walkTime) {
+  const config = routeConfigs.find(c => c.id === configId);
+  if (config) {
+    const stop = config.stops.find(s => s.id === stopId);
+    if (stop) {
+      stop.walk = parseInt(walkTime, 10) || 0;
+    }
+  }
+}
+
+// Render all route configurations
+async function renderRoutes() {
+  const container = document.getElementById("routesContainer");
+  container.innerHTML = "";
+
+  if (routeConfigs.length === 0) {
+    return;
+  }
+
+  // Helper to get emoji for route type
+  function getRouteEmoji(type, color) {
+    if (type === 'light_rail' || type === 'heavy_rail') {
+      // Map MBTA colors to square emojis
+      const colorSquares = {
+        'DA291C': '🟥', // Red line
+        'ED8B00': '🟧', // Orange line
+        '003DA5': '🟦', // Blue line
+        '00843D': '🟩', // Green line
+        '7C878E': '⬜', // Silver line
+      };
+      const square = colorSquares[color] || '🟨';
+      return `${square}🚃`;
+    }
+    return '🚌';
+  }
+
+  // Build all route config HTML first
+  for (const routeConfig of routeConfigs) {
+    const route = allRoutes.find(r => r.id === routeConfig.routeId);
+    const routeEmoji = route ? getRouteEmoji(route.type, route.color) : '🚌';
+    const routeColor = route ? `#${route.color}` : '#666';
+    const routeName = route ? `${route.shortName} - ${route.longName}` : "Select a route";
+
+    const routeDiv = document.createElement("div");
+    routeDiv.className = "route-config";
+    if (route) {
+      routeDiv.style.borderLeft = `4px solid ${routeColor}`;
+    }
+    routeDiv.innerHTML = `
+      <div class="route-config-header">
+        <div class="route-config-title">${route ? `${routeEmoji} ` : ''}${routeName}</div>
+        <button class="btn btn-small btn-danger" onclick="removeRoute(${routeConfig.id})">✕</button>
+      </div>
+      <div class="config-section">
+        <label>Route</label>
+        <select id="routeSelect_${routeConfig.id}" onchange="onRouteChange(${routeConfig.id})">
+          <option value="">🔍 Search routes...</option>
+          ${allRoutes.map(r => {
+            const emoji = getRouteEmoji(r.type, r.color);
+            return `<option value="${r.id}" ${r.id === routeConfig.routeId ? 'selected' : ''}>${emoji} ${r.shortName} - ${r.longName}</option>`;
+          }).join('')}
+        </select>
+      </div>
+      ${routeConfig.routeId ? `
+        <div class="config-section">
+          <label>Direction</label>
+          <select id="directionSelect_${routeConfig.id}" onchange="onDirectionChange(${routeConfig.id})" disabled>
+            <option value="">↔️ Loading directions...</option>
+          </select>
+        </div>
+      ` : ''}
+      ${routeConfig.direction !== null ? `
+        <div class="config-section">
+          <label>Select Stop (in route order)</label>
+          <select id="stopSelect_${routeConfig.id}" disabled>
+            <option value="">📍 Loading stops...</option>
+          </select>
+          <div style="margin-top: 8px;">
+            <button class="btn btn-small" onclick="addStop(${routeConfig.id})" style="width: 100%;">➕ Add Stop</button>
+          </div>
+        </div>
+      ` : ''}
+      ${routeConfig.stops.length > 0 ? `
+        <div class="config-section">
+          <label>Selected Stops</label>
+          <div id="stopsList_${routeConfig.id}"></div>
+        </div>
+      ` : ''}
+    `;
+    container.appendChild(routeDiv);
+  }
+
+  // Now populate dropdowns sequentially to avoid race conditions
+  for (const routeConfig of routeConfigs) {
+    if (!routeConfig.routeId) continue;
+
+    // Populate directions
+    const directionSelect = document.getElementById(`directionSelect_${routeConfig.id}`);
+    if (directionSelect) {
+      const directions = await fetchDirections(routeConfig.routeId);
+      directionSelect.innerHTML = '<option value="">↔️ Choose direction...</option>';
+      directions.forEach(dir => {
+        const option = document.createElement("option");
+        option.value = dir.id;
+        // Add directional emoji based on direction name
+        const name = dir.name.toLowerCase();
+        let emoji = '';
+        if (name.includes('south')) emoji = '⬇️ ';
+        else if (name.includes('north')) emoji = '⬆️ ';
+        else if (name.includes('east')) emoji = '➡️ ';
+        else if (name.includes('west')) emoji = '⬅️ ';
+        else if (name.includes('inbound')) emoji = '➡️ ';
+        else if (name.includes('outbound')) emoji = '⬅️ ';
+        option.textContent = emoji + dir.name;
+        if (dir.id === routeConfig.direction) {
+          option.selected = true;
+        }
+        directionSelect.appendChild(option);
+      });
+      directionSelect.disabled = false;
+    }
+
+    // If direction is selected, populate stops
+    if (routeConfig.direction !== null) {
+      const stops = await fetchStops(routeConfig.routeId, routeConfig.direction);
+      const stopSelect = document.getElementById(`stopSelect_${routeConfig.id}`);
+      if (stopSelect) {
+        stopSelect.innerHTML = '<option value="">📍 Choose a stop...</option>';
+        stops.forEach(stop => {
+          const option = document.createElement("option");
+          option.value = stop.id;
+          option.textContent = stop.name;
+          stopSelect.appendChild(option);
+        });
+        stopSelect.disabled = false;
+      }
+
+      // Render stops list
+      const stopsList = document.getElementById(`stopsList_${routeConfig.id}`);
+      if (stopsList) {
+        stopsList.innerHTML = "";
+        routeConfig.stops.forEach(stop => {
+          const item = document.createElement("div");
+          item.className = "stop-item";
+          item.innerHTML = `
+            <div style="font-size: 14px; font-weight: 600;">${stop.name}</div>
+            <div style="display: flex; align-items: center; gap: 4px; justify-content: flex-end;" title="Walking time to stop">
+              <span style="font-size: 12px; opacity: 0.7;">Walk</span>
+              <input type="number" min="0" value="${stop.walk}" placeholder="min"
+                     onchange="updateStopWalk(${routeConfig.id}, '${stop.id}', this.value)"
+                     style="margin: 0; width: 50px;" />
+              <span style="font-size: 12px; opacity: 0.7;">min</span>
+            </div>
+            <button class="btn btn-small btn-danger" onclick="removeStop(${routeConfig.id}, '${stop.id}')">✕</button>
+          `;
+          stopsList.appendChild(item);
+        });
+      }
+    }
+  }
+}
+
+// Update apply button state
+function updateApplyButton() {
+  const applyBtn = document.getElementById("applyBtn");
+  const hasStops = routeConfigs.some(c => c.stops.length > 0);
+  applyBtn.disabled = !hasStops;
+}
+
+// Load configuration from URL or use defaults
+function loadConfig() {
+  config = parseConfigFromURL();
+  
+  // Reconstruct routeDirectionPairs from routes and directions
+  if (config.routes && config.directions) {
+    config.routeDirectionPairs = config.routes.map(route => ({
+      route: route,
+      direction: config.directions[route] !== undefined ? config.directions[route] : 0
+    }));
+  }
+  
+  renderStopsUI();
+}
+
+
+// Render stops UI dynamically
+function renderStopsUI() {
+  const container = document.getElementById("stopsContainer");
+  container.innerHTML = "";
+  
+  config.stops.forEach((stop, index) => {
+    const card = document.createElement("div");
+    card.className = "card";
+    card.id = `cardStop${index}`;
+    card.innerHTML = `
+      <div class="route">${stop.name}</div>
+      <div id="stopBuses${index}"></div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+// Enter edit mode - reconstruct routeConfigs from current config
+async function enterEditMode() {
+  const configPanel = document.getElementById("configPanel");
+  const editBtn = document.getElementById("editBtn");
+
+  // Show config panel, hide edit button
+  configPanel.classList.remove("hidden");
+  editBtn.style.display = "none";
+
+  // Ensure routes are loaded
+  if (allRoutes.length === 0) {
+    allRoutes = await fetchRoutes();
+  }
+
+  // Reconstruct routeConfigs from current config
+  routeConfigs = [];
+
+  if (config.routeDirectionPairs && config.routeDirectionPairs.length > 0) {
+    for (const pair of config.routeDirectionPairs) {
+      const route = allRoutes.find(r => r.shortName === pair.route);
+      if (route) {
+        const configId = routeConfigCounter++;
+        // Get stops specific to this route from routeStopsMap
+        let stopsForRoute = [];
+        if (config.routeStopsMap && config.routeStopsMap[pair.route]) {
+          stopsForRoute = config.routeStopsMap[pair.route].map(s => ({
+            id: s.id,
+            name: s.name,
+            walk: s.walk
+          }));
+        }
+
+        routeConfigs.push({
+          id: configId,
+          routeId: route.id,
+          routeShortName: pair.route,
+          direction: pair.direction,
+          stops: stopsForRoute
+        });
+      }
+    }
+  } else if (config.routes && config.routes.length > 0) {
+    // Fallback to routes array
+    for (const routeShortName of config.routes) {
+      const route = allRoutes.find(r => r.shortName === routeShortName);
+      if (route) {
+        const configId = routeConfigCounter++;
+        const direction = config.directions[routeShortName] !== undefined ? config.directions[routeShortName] : null;
+        // Get stops specific to this route from routeStopsMap, fallback to all stops for old URLs
+        let stopsForRoute = [];
+        if (config.routeStopsMap && config.routeStopsMap[routeShortName]) {
+          stopsForRoute = config.routeStopsMap[routeShortName].map(s => ({
+            id: s.id,
+            name: s.name,
+            walk: s.walk
+          }));
+        } else {
+          // Old URL format - all stops shared
+          stopsForRoute = config.stops.map(s => ({
+            id: s.id,
+            name: s.name,
+            walk: s.walk
+          }));
+        }
+
+        routeConfigs.push({
+          id: configId,
+          routeId: route.id,
+          routeShortName: routeShortName,
+          direction: direction,
+          stops: stopsForRoute
+        });
+      }
+    }
+  }
+
+  // If no configs reconstructed, add an empty one
+  if (routeConfigs.length === 0) {
+    addRoute();
+  }
+
+  // Set buffer value
+  document.getElementById("configBuffer").value = config.buffer || 2;
+
+  // Render the route configs
+  await renderRoutes();
+  updateApplyButton();
+}
+
+// Apply configuration from UI
+function applyConfig() {
+  // Collect all routes and their configurations
+  // Store route+direction pairs to support same route with different directions
+  const routeDirectionPairs = [];
+  const stopsMap = new Map(); // Use Map to group stops by ID (for display)
+  const routeStopsMap = {}; // Map route -> stops (for URL storage and edit mode)
+
+  routeConfigs.forEach(routeConfig => {
+    if (routeConfig.routeShortName && routeConfig.direction !== null && routeConfig.stops.length > 0) {
+      routeDirectionPairs.push({
+        route: routeConfig.routeShortName,
+        direction: routeConfig.direction
+      });
+
+      // Store stops per route
+      routeStopsMap[routeConfig.routeShortName] = routeConfig.stops.map(stop => ({
+        id: stop.id,
+        walk: stop.walk || 0,
+        name: stop.name
+      }));
+
+      routeConfig.stops.forEach(stop => {
+        // Group stops by ID - if same stop appears multiple times, keep the first walk time
+        if (!stopsMap.has(stop.id)) {
+          stopsMap.set(stop.id, {
+            id: stop.id,
+            walk: stop.walk || 0,
+            name: stop.name
+          });
+        }
+      });
+    }
+  });
+
+  if (routeDirectionPairs.length === 0 || stopsMap.size === 0) {
+    return;
+  }
+
+  // Update config - extract unique routes and create directions mapping
+  const routes = [...new Set(routeDirectionPairs.map(p => p.route))];
+  const directions = {};
+  routeDirectionPairs.forEach(pair => {
+    // If same route has multiple directions, use the last one
+    // (for now - could be enhanced to support multiple directions per route)
+    directions[pair.route] = pair.direction;
+  });
+
+  config.routes = routes;
+  config.directions = directions;
+  config.stops = Array.from(stopsMap.values()); // Convert Map to array (deduplicated for display)
+  config.routeStopsMap = routeStopsMap; // Store per-route stops
+  config.buffer = parseInt(document.getElementById("configBuffer").value, 10) || 2;
+
+  // Store route+direction pairs for prediction fetching
+  config.routeDirectionPairs = routeDirectionPairs;
+
+  updateURL();
+  renderStopsUI();
+
+  // Hide configuration panel after applying, show edit button
+  const configPanel = document.getElementById("configPanel");
+  const editBtn = document.getElementById("editBtn");
+  configPanel.classList.add("hidden");
+  editBtn.style.display = "flex";
+
+  tick(); // Refresh data
+}
 
 function fmtTime(d) {
   return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
@@ -110,15 +976,26 @@ async function getPredictions(route, stop, dir) {
   }
 }
 
-// Get next N buses (87 or 88) at a stop
-async function getNextBusesAtStop(stop, dir87, dir88, count = 2) {
-  const [preds87, preds88] = await Promise.all([
-    getPredictions("87", stop, dir87),
-    getPredictions("88", stop, dir88),
-  ]);
+// Get next N buses at a stop for all configured routes
+async function getNextBusesAtStop(stopId, count = 2) {
+  // Use routeDirectionPairs if available (supports multiple directions per route)
+  // Otherwise fall back to routes + directions mapping
+  let routeDirPairs = [];
+  if (config.routeDirectionPairs && config.routeDirectionPairs.length > 0) {
+    routeDirPairs = config.routeDirectionPairs;
+  } else {
+    routeDirPairs = config.routes.map(route => ({
+      route: route,
+      direction: config.directions[route] !== undefined ? config.directions[route] : 0
+    }));
+  }
   
-  // Combine and sort by time
-  const allPreds = [...preds87, ...preds88].sort((a, b) => a.time - b.time);
+  const predictions = await Promise.all(
+    routeDirPairs.map(pair => getPredictions(pair.route, stopId, pair.direction))
+  );
+  
+  // Flatten and sort by time
+  const allPreds = predictions.flat().sort((a, b) => a.time - b.time);
   
   // Return the next N
   return allPreds.slice(0, count);
@@ -126,14 +1003,17 @@ async function getNextBusesAtStop(stop, dir87, dir88, count = 2) {
 
 function renderBusCard(bus, walkMin, index) {
   const now = new Date();
-  const leaveTime = new Date(bus.time.getTime() - (walkMin + BUFFER_MIN) * 60000);
+  const leaveTime = new Date(bus.time.getTime() - (walkMin + config.buffer) * 60000);
   const busIn = minsUntil(now, bus.time);
   const leaveIn = minsUntil(now, leaveTime);
-  const routeClass = "bus-" + bus.route;
-  const routeLabelClass = "route-" + bus.route;
-  const marginTop = index > 0 ? "16px" : "10px";
+  const marginTop = index > 0 ? "12px" : "8px";
 
-  return "<div class=\"bus-card " + routeClass + "\" style=\"margin-top: " + marginTop + ";\">" +
+  // Get dynamic color from routeColors cache, fallback to gray
+  const color = routeColors[bus.route] || '666666';
+  const borderColor = '#' + color;
+  const textColor = '#' + color;
+
+  return "<div class=\"bus-card\" style=\"margin-top: " + marginTop + "; border-left-color: " + borderColor + ";\">" +
     "<div class=\"grid\">" +
       "<div>" +
         "<div class=\"label\">Leave in</div>" +
@@ -141,7 +1021,7 @@ function renderBusCard(bus, walkMin, index) {
         "<div class=\"muted\">at " + fmtTime(leaveTime) + "</div>" +
       "</div>" +
       "<div>" +
-        "<div class=\"label\">Bus <span class=\"route-label " + routeLabelClass + "\">" + bus.route + "</span> in</div>" +
+        "<div class=\"label\">Bus <span class=\"route-label\" style=\"color: " + textColor + ";\">" + bus.route + "</span> in</div>" +
         "<div class=\"big\">" + busIn + "m</div>" +
         "<div class=\"muted\">at " + fmtTime(bus.time) + "</div>" +
       "</div>" +
@@ -190,9 +1070,10 @@ function updateStatus() {
   }
   
   // Other info
+  const walkTimes = config.stops.map(s => `${s.walk}m`).join("/");
   statusParts.push(
-    `Walk: ${WALK_BROADWAY}m/${WALK_CLARENDON}m`,
-    `Buffer: ${BUFFER_MIN}m`
+    `Walk: ${walkTimes}`,
+    `Buffer: ${config.buffer}m`
   );
   
   statusEl.textContent = statusParts.join(" • ");
@@ -202,13 +1083,16 @@ async function tick() {
   try {
     document.getElementById("status").textContent = "Updating…";
     
-    const [broadwayBuses, clarendonBuses] = await Promise.all([
-      getNextBusesAtStop(STOP_BROADWAY, DIR_87, DIR_88, 2),
-      getNextBusesAtStop(STOP_CLARENDON, DIR_87, DIR_88, 2),
-    ]);
+    // Fetch buses for all configured stops
+    const busPromises = config.stops.map(stop => 
+      getNextBusesAtStop(stop.id, 2)
+    );
+    const allBuses = await Promise.all(busPromises);
 
-    renderStopBuses("broadwayBuses", broadwayBuses, WALK_BROADWAY);
-    renderStopBuses("clarendonBuses", clarendonBuses, WALK_CLARENDON);
+    // Render buses for each stop
+    config.stops.forEach((stop, index) => {
+      renderStopBuses(`stopBuses${index}`, allBuses[index], stop.walk);
+    });
 
     // Update timestamps
     lastUpdateTime = new Date();
@@ -220,31 +1104,98 @@ async function tick() {
   }
 }
 
-(function() {
-  try {
-    (async function() {
-      try {
-        // Initial tick
+// Pull-to-refresh functionality
+let touchStartY = 0;
+let isPulling = false;
+
+function setupPullToRefresh() {
+  const pullIndicator = document.getElementById("pullIndicator");
+
+  document.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0) {
+      touchStartY = e.touches[0].clientY;
+      isPulling = true;
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!isPulling) return;
+    const touchY = e.touches[0].clientY;
+    const diff = touchY - touchStartY;
+
+    if (diff > 50 && window.scrollY === 0) {
+      pullIndicator.classList.remove("hidden");
+      pullIndicator.textContent = diff > 100 ? "Release to refresh" : "Pull to refresh";
+    }
+  }, { passive: true });
+
+  document.addEventListener('touchend', async (e) => {
+    if (!isPulling) return;
+    isPulling = false;
+
+    const pullIndicator = document.getElementById("pullIndicator");
+    if (!pullIndicator.classList.contains("hidden")) {
+      const touchEndY = e.changedTouches[0].clientY;
+      const diff = touchEndY - touchStartY;
+
+      if (diff > 100 && config.stops.length > 0) {
+        pullIndicator.textContent = "Refreshing...";
         await tick();
-        
-        // Set up refresh interval
-        setInterval(tick, REFRESH_MS);
-        
-        // Set up countdown timer (updates every second)
-        countdownInterval = setInterval(updateStatus, 1000);
-      } catch (e) {
-        console.error("Initialization error:", e);
-        var statusEl = document.getElementById("status");
-        if (statusEl) {
-          statusEl.textContent = "Error initializing: " + (e.message || String(e));
-        }
       }
-    })();
+      pullIndicator.classList.add("hidden");
+    }
+    touchStartY = 0;
+  }, { passive: true });
+}
+
+(async function() {
+  try {
+    // Load configuration from URL or use defaults
+    loadConfig();
+
+    const configPanel = document.getElementById("configPanel");
+    const editBtn = document.getElementById("editBtn");
+
+    // Show config panel only if no URL params (first time user)
+    if (window.location.search) {
+      // Hide panel if there's a query string, show edit button
+      configPanel.classList.add("hidden");
+      editBtn.style.display = "flex";
+
+      // Pre-fetch routes for edit mode (in background)
+      fetchRoutes().then(routes => {
+        allRoutes = routes;
+      });
+    } else {
+      // Show panel if no query string and populate routes
+      configPanel.classList.remove("hidden");
+      editBtn.style.display = "none";
+
+      // Start with one empty route config
+      if (routeConfigs.length === 0) {
+        addRoute();
+      }
+      await populateRoutes();
+    }
+
+    // Setup pull-to-refresh
+    setupPullToRefresh();
+
+    // Initial tick (only if we have stops configured)
+    if (config.stops.length > 0) {
+      await tick();
+
+      // Set up refresh interval
+      setInterval(tick, REFRESH_MS);
+
+      // Set up countdown timer (updates every second)
+      countdownInterval = setInterval(updateStatus, 1000);
+    }
   } catch (e) {
-    console.error("Fatal error:", e);
-    var statusEl = document.getElementById("status");
+    console.error("Initialization error:", e);
+    const statusEl = document.getElementById("status");
     if (statusEl) {
-      statusEl.textContent = "Fatal error: " + (e.message || String(e));
+      statusEl.textContent = "Error initializing: " + (e.message || String(e));
     }
   }
 })();
